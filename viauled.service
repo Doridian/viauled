@@ -1,0 +1,13 @@
+# System service
+
+[Unit]
+Description=VIA uled
+Before=upower.service
+After=local-fs.target
+
+[Service]
+ExecStart=/usr/local/bin/viauled
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
