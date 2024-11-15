@@ -40,13 +40,13 @@ static int send_message(const unsigned char message_id, const unsigned char* msg
 
     int res = hid_write(handle, data, RAW_HID_BUFFER_SIZE);
     if (res < RAW_HID_BUFFER_SIZE) {
-        printf("Error on hid_write: %ls\n", res, hid_error(handle));
+        printf("Error on hid_write: %ls (%d)\n", hid_error(handle), res);
         return -1;
     }
 
     res = hid_read_timeout(handle, data, RAW_HID_BUFFER_SIZE, 1000);
     if (res < RAW_HID_BUFFER_SIZE) {
-        printf("Error on hid_read_timeout: %ls\n", res, hid_error(handle));
+        printf("Error on hid_read_timeout: %ls (%d)\n", hid_error(handle), res);
         return -1;
     }
 

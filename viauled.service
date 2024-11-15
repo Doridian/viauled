@@ -4,10 +4,12 @@
 Description=VIA uled
 Before=upower.service
 After=local-fs.target
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/viauled
 Restart=always
+RestartSec=30
 
 [Install]
 WantedBy=multi-user.target
