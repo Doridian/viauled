@@ -20,9 +20,11 @@ You can copy the `viauled` binary from the `build` folder to its final destinati
 
 ## Running
 
-[viauled.service](viauled.service) in this repo is an example systemd service file
+The process takes two arguments, the USB VID and PID.
 
-Otherwise, the binary can just be run without arguments as root
+[viauled.service](viauled.service) in this repo is an example systemd service file (change the first argument to the VID and the second to the PID of the device you are trying to control)
+
+Otherwise, the binary can just be run as root (so it can connect to the kernel's uled subsystem, alternatively you can maybe use udev to grant additional access to the uled subsystem)
 
 ## Special Thanks
 

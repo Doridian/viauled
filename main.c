@@ -75,10 +75,27 @@ static void set_rgb_brightness(const int brightness) {
 }
 
 int main(int argc, char **argv) {
-    running = 1;
-   (void)hid_init();
+    if (argc < 3) {
+        printf("Usage: %s <vid> <pid>\n", argv[0]);
+        return 1;
+    }
 
-    struct hid_device_info* info = hid_enumerate(0x32ac, 0x0012);
+    char *endptr;
+    int vid = strtol(argv[1], &endptr, 0);
+    if (*endptr != '\0') {
+        printf("Invalid VID: %s\n", argv[1]);
+        return 1;
+    }
+    int pid = strtol(argv[2], &endptr, 0);
+    if (*endptr != '\0') {
+        printf("Invalid PID: %s\n", argv[2]);
+        return 1;
+    }
+
+    running = 1;
+    (void)hid_init();
+
+    struct hid_device_info* info = hid_enumerate(vid, pid);
     while (info != NULL && info->interface_number != QMK_INTERFACE) {
         info = info->next;
     }
