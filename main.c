@@ -82,12 +82,12 @@ int main(int argc, char **argv) {
 
     char *endptr;
     int vid = strtol(argv[1], &endptr, 0);
-    if (*endptr != '\0') {
+    if (*endptr != '\0' || vid < 0x0000 || vid > 0xFFFF) {
         printf("Invalid VID: %s\n", argv[1]);
         return 1;
     }
     int pid = strtol(argv[2], &endptr, 0);
-    if (*endptr != '\0') {
+    if (*endptr != '\0' || pid < 0x0000 || pid > 0xFFFF) {
         printf("Invalid PID: %s\n", argv[2]);
         return 1;
     }
