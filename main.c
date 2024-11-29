@@ -7,6 +7,11 @@
 #include <hidapi/hidapi.h>
 #include <linux/uleds.h>
 
+#define DEFAULT_LED_DEV "viauled::kbd_backlight"
+#define DEFAULT_HID_DEV ""
+#define DEFAULT_VID 0x32ac
+#define DEFAULT_PID 0x0012
+
 #define RAW_HID_BUFFER_SIZE 32
 
 #define CHANNEL_BACKLIGHT 1
@@ -74,47 +79,88 @@ static void set_rgb_brightness(const int brightness) {
     set_rgb_u8(RGB_MATRIX_VALUE_BRIGHTNESS, brightness);
 }
 
-int main(int argc, char **argv) {
-    if (argc < 3) {
-        printf("Usage: %s <vid> <pid>\n", argv[0]);
-        return 1;
-    }
+#define OPTARG_TO_NUMBER(VAR) { \
+    VAR = strtol(optarg, &endptr, 0); \
+    if (*endptr != '\0') { \
+        printf("Invalid number for option %c: %s\n", opt, optarg); \
+        return 1; \
+    } \
+}
 
+void usage(char **argv) {
+    printf("Usage (search by VID/PID): %s -v VID -p PID [-l LED_DEVICE]\n", argv[0]);
+    printf("Usage (specify HID device): %s -h HID_DEVICE [-l LED_DEVICE]\n", argv[0]);
+    exit(1);
+}
+
+int main(int argc, char **argv) {
+    int vid = DEFAULT_VID, pid = DEFAULT_PID, opt;
     char *endptr;
-    int vid = strtol(argv[1], &endptr, 0);
-    if (*endptr != '\0' || vid < 0x0000 || vid > 0xFFFF) {
-        printf("Invalid VID: %s\n", argv[1]);
-        return 1;
-    }
-    int pid = strtol(argv[2], &endptr, 0);
-    if (*endptr != '\0' || pid < 0x0000 || pid > 0xFFFF) {
-        printf("Invalid PID: %s\n", argv[2]);
-        return 1;
+
+    char *led_dev = malloc(strlen(DEFAULT_LED_DEV) + 1);
+    strcpy(led_dev, DEFAULT_LED_DEV);
+
+    char *hid_dev = malloc(strlen(DEFAULT_HID_DEV) + 1);
+    strcpy(hid_dev, DEFAULT_HID_DEV);
+
+    while ((opt = getopt(argc, argv, "v:p:l:h:")) != -1) {
+        switch (opt) {
+            case 'v':
+                OPTARG_TO_NUMBER(vid)
+                break;
+            case 'p':
+                OPTARG_TO_NUMBER(pid)
+                break;
+            case 'h':
+                hid_dev = realloc(hid_dev, strlen(optarg) + 1);
+                strcpy(hid_dev, optarg);
+                break;
+            case 'l':
+                led_dev = realloc(led_dev, strlen(optarg) + 1);
+                strcpy(led_dev, optarg);
+                break;
+            default:
+                usage(argv);
+        }
     }
 
     running = 1;
     (void)hid_init();
 
-    struct hid_device_info* info = hid_enumerate(vid, pid);
-    while (info != NULL && info->interface_number != QMK_INTERFACE) {
-        info = info->next;
+    if (hid_dev[0] == '\0') {
+        if (vid < 0x0000 || vid > 0xFFFF) {
+            printf("Invalid VID: %04X\n", vid);
+            usage(argv);
+        }
+
+        if (pid < 0x0000 || pid > 0xFFFF) {
+            printf("Invalid PID: %04X\n", pid);
+            usage(argv);
+        }
+
+        struct hid_device_info* info = hid_enumerate(vid, pid);
+        while (info != NULL && info->interface_number != QMK_INTERFACE) {
+            info = info->next;
+        }
+
+        if (info == NULL) {
+            printf("Could not find HID!\n");
+            return 1;
+        }
+
+        hid_dev = realloc(hid_dev, strlen(info->path) + 1);
+        strcpy(hid_dev, info->path);
     }
 
-    if (info == NULL) {
-        printf("Could not find keyboard!\n");
-        return 1;
-    }
-
-    printf("Found HID at %s\n", info->path);
-
-    handle = hid_open_path(info->path);
+    printf("Using HID at %s\n", hid_dev);
+    handle = hid_open_path(hid_dev);
     if (!handle) {
-        printf("Could not open keyboard!\n");
+        printf("Could not open HID!\n");
         return 1;
     }
 
 	struct uleds_user_dev uleds_dev;
-	strncpy(uleds_dev.name, "viauled::kbd_backlight", LED_MAX_NAME_SIZE);
+	strncpy(uleds_dev.name, led_dev, LED_MAX_NAME_SIZE);
 	uleds_dev.max_brightness = 0xFF;
 
     int fd = open("/dev/uleds", O_RDWR);
