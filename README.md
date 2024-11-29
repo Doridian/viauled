@@ -23,3 +23,7 @@ You can copy the `viauled` binary from the `build` folder to its final destinati
 [viauled.service](viauled.service) in this repo is an example systemd service file
 
 Otherwise, the binary can just be run without arguments as root
+
+## Special Thanks
+
+Framework for their nice documentation of the "VIA" protocol in this tool [qmk_hid](https://github.com/FrameworkComputer/qmk_hid)
