@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/errno.h>
 
 #include <hidapi/hidapi.h>
 #include <linux/uleds.h>
@@ -11,6 +12,11 @@
 #define DEFAULT_HID_DEV ""
 #define DEFAULT_VID 0x32ac
 #define DEFAULT_PID 0x0012
+#define STARTUP_BRIGHTNESS 0xFF
+
+// The len is slightly too long due to the %s, but just 2 bytes aren't worth it
+#define ULED_SYSFS_PATH "/sys/class/leds/%s/brightness"
+#define ULED_SYSFS_PATH_LEN strlen(ULED_SYSFS_PATH)
 
 #define RAW_HID_BUFFER_SIZE 32
 
@@ -87,10 +93,37 @@ static void set_rgb_brightness(const int brightness) {
     } \
 }
 
-void usage(char **argv) {
+int usage(char **argv) {
     printf("Usage (search by VID/PID): %s -v VID -p PID [-l LED_DEVICE]\n", argv[0]);
     printf("Usage (specify HID device): %s -h HID_DEVICE [-l LED_DEVICE]\n", argv[0]);
-    exit(1);
+    return 1;
+}
+
+int wait_for_self(const char* led_dev) {
+    char *sysfs_path = malloc(ULED_SYSFS_PATH_LEN + strlen(led_dev) + 1);
+    sprintf(sysfs_path, ULED_SYSFS_PATH, led_dev);
+    printf("Waiting for %s\n", sysfs_path);
+    int fd;
+    while (running) {
+        fd = open(sysfs_path, O_RDWR);
+        if (fd) {
+            break;
+        }
+        if (errno == ENOENT) {
+            continue;
+        }
+        perror("open(sysfs_path");
+        return 1;
+    }
+#ifdef STARTUP_BRIGHTNESS
+    char brightness_str[64]; // way too large, but whatever
+    sprintf(brightness_str, "%d\n", STARTUP_BRIGHTNESS);
+    printf("Setting brightness to %s", brightness_str);
+    write(fd, brightness_str, strlen(brightness_str));
+#endif
+    (void)close(fd);
+    printf("Startup complete!\n");
+    return 0;
 }
 
 int main(int argc, char **argv) {
@@ -103,7 +136,9 @@ int main(int argc, char **argv) {
     char *hid_dev = malloc(strlen(DEFAULT_HID_DEV) + 1);
     strcpy(hid_dev, DEFAULT_HID_DEV);
 
-    while ((opt = getopt(argc, argv, "v:p:l:h:")) != -1) {
+    running = 1;
+
+    while ((opt = getopt(argc, argv, "wv:p:l:h:")) != -1) {
         switch (opt) {
             case 'v':
                 OPTARG_TO_NUMBER(vid)
@@ -119,23 +154,24 @@ int main(int argc, char **argv) {
                 led_dev = realloc(led_dev, strlen(optarg) + 1);
                 strcpy(led_dev, optarg);
                 break;
+            case 'w':
+                return wait_for_self(led_dev);
             default:
-                usage(argv);
+                return usage(argv);
         }
     }
 
-    running = 1;
     (void)hid_init();
 
     if (hid_dev[0] == '\0') {
         if (vid < 0x0000 || vid > 0xFFFF) {
             printf("Invalid VID: %04X\n", vid);
-            usage(argv);
+            return usage(argv);
         }
 
         if (pid < 0x0000 || pid > 0xFFFF) {
             printf("Invalid PID: %04X\n", pid);
-            usage(argv);
+            return usage(argv);
         }
 
         struct hid_device_info* info = hid_enumerate(vid, pid);
@@ -178,7 +214,7 @@ int main(int argc, char **argv) {
 
     printf("uled initialized\n");
 
-	int brightness;
+    int brightness;
     while (running) {
         ret = read(fd, &brightness, sizeof(brightness));
         if (ret == -1) {

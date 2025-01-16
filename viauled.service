@@ -8,6 +8,8 @@ StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/local/bin/viauled
+# This delays service startup confirmation until we're fully up
+ExecStartPost=/usr/local/bin/viauled -w
 Restart=always
 RestartSec=30
 
